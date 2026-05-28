@@ -7,7 +7,7 @@ from datetime import datetime
 app = Flask(__name__)
 CORS(app)  # Permite requisições do frontend
 
-DB_PATH = "tarefas.db"
+DB_PATH = "/tmp/tarefas.db"
 
 # ─── Inicialização do Banco de Dados ───────────────────────────────────────────
 
@@ -182,6 +182,16 @@ def estatisticas():
     conn.close()
     return jsonify({"total": total, "por_status": por_status, "por_prioridade": por_prioridade}), 200
 
+# Rota para o n8n buscar tarefas pendentes
+@app.route("/tarefas/pendentes", methods=["GET"])
+def tarefas_pendentes():
+    conn   = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM tarefas WHERE status != 'concluida' ORDER BY prioridade DESC")
+    tarefas = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return jsonify(tarefas), 200
+    
 
 # ─── Entry Point ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
