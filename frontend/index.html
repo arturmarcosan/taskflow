@@ -5,235 +5,223 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TaskFlow — Gerenciador de Tarefas</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:       #0d0f14;
-      --surface:  #13161e;
-      --card:     #1a1e2a;
-      --border:   #252a38;
-      --accent:   #4fffb0;
-      --accent2:  #ff6b6b;
-      --accent3:  #ffd166;
-      --text:     #e8eaf0;
-      --muted:    #6b7280;
-      --radius:   12px;
-      --mono:     'Space Mono', monospace;
-      --sans:     'Sora', sans-serif;
+      --bg: #f0f4ff;
+      --surface: #ffffff;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --purple: #7c3aed;
+      --purple-light: #ede9fe;
+      --pink: #db2777;
+      --pink-light: #fce7f3;
+      --teal: #0d9488;
+      --teal-light: #ccfbf1;
+      --amber: #d97706;
+      --amber-light: #fef3c7;
+      --red: #dc2626;
+      --red-light: #fee2e2;
+      --green: #16a34a;
+      --green-light: #dcfce7;
+      --text: #1e293b;
+      --muted: #64748b;
+      --radius: 16px;
+      --font: 'Nunito', sans-serif;
     }
 
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: var(--sans);
+      font-family: var(--font);
       min-height: 100vh;
-      overflow-x: hidden;
     }
 
-    /* ── Noise overlay ─────────────────────────────────── */
-    body::before {
-      content: '';
-      position: fixed; inset: 0;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
-      pointer-events: none; z-index: 0;
-    }
-
-    /* ── Layout ─────────────────────────────────────────── */
-    .wrapper { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; position: relative; z-index: 1; }
-
-    /* ── Header ─────────────────────────────────────────── */
+    /* ── Header ── */
     header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding-bottom: 2rem; border-bottom: 1px solid var(--border);
-      margin-bottom: 2.5rem;
+      background: linear-gradient(135deg, #7c3aed 0%, #db2777 100%);
+      padding: 2rem 1.5rem 3.5rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
     }
-    .logo { display: flex; align-items: center; gap: .75rem; }
-    .logo-icon {
-      width: 38px; height: 38px; border-radius: 10px;
-      background: var(--accent); display: grid; place-items: center;
-      font-size: 1.1rem;
+    header::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='30' r='20'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
     }
-    .logo h1 { font-family: var(--mono); font-size: 1.25rem; letter-spacing: -.02em; }
-    .logo span { color: var(--accent); }
+    header h1 { font-size: 2.2rem; font-weight: 800; color: #fff; position: relative; letter-spacing: -.02em; }
+    header p  { color: rgba(255,255,255,.8); font-size: .95rem; margin-top: .4rem; position: relative; }
 
-    /* ── Stats bar ───────────────────────────────────────── */
-    .stats-bar {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;
-      margin-bottom: 2.5rem;
-    }
-    .stat-card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 1rem 1.25rem;
+    /* ── Wrapper ── */
+    .wrapper { max-width: 860px; margin: -2rem auto 0; padding: 0 1.25rem 3rem; position: relative; z-index: 1; }
+
+    /* ── Stats ── */
+    .stats { display: grid; grid-template-columns: repeat(4,1fr); gap: .75rem; margin-bottom: 1.5rem; }
+    .stat {
+      background: var(--surface); border-radius: var(--radius);
+      padding: 1rem; text-align: center;
+      box-shadow: 0 2px 12px rgba(0,0,0,.06);
+      border-top: 4px solid transparent;
       transition: transform .2s;
     }
-    .stat-card:hover { transform: translateY(-2px); }
-    .stat-label { font-size: .7rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-bottom: .35rem; font-family: var(--mono); }
-    .stat-value { font-size: 1.8rem; font-weight: 700; font-family: var(--mono); }
-    .stat-card.green .stat-value { color: var(--accent); }
-    .stat-card.red   .stat-value { color: var(--accent2); }
-    .stat-card.yellow .stat-value { color: var(--accent3); }
+    .stat:hover { transform: translateY(-3px); }
+    .stat.total  { border-color: var(--purple); }
+    .stat.pend   { border-color: var(--amber); }
+    .stat.prog   { border-color: #3b82f6; }
+    .stat.done   { border-color: var(--green); }
+    .stat-num  { font-size: 2rem; font-weight: 800; }
+    .stat.total .stat-num { color: var(--purple); }
+    .stat.pend  .stat-num { color: var(--amber); }
+    .stat.prog  .stat-num { color: #3b82f6; }
+    .stat.done  .stat-num { color: var(--green); }
+    .stat-label { font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-top: .2rem; }
 
-    /* ── Form ────────────────────────────────────────────── */
-    .form-card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 1.75rem; margin-bottom: 2rem;
+    /* ── Card base ── */
+    .card {
+      background: var(--surface); border-radius: var(--radius);
+      padding: 1.5rem; margin-bottom: 1.25rem;
+      box-shadow: 0 2px 12px rgba(0,0,0,.06);
     }
-    .form-card h2 { font-size: 1rem; font-family: var(--mono); margin-bottom: 1.25rem; color: var(--accent); }
-    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    .form-grid .full { grid-column: 1 / -1; }
+    .card-title { font-size: 1rem; font-weight: 800; color: var(--purple); margin-bottom: 1.25rem; display: flex; align-items: center; gap: .5rem; }
 
-    label { display: block; font-size: .75rem; font-family: var(--mono); color: var(--muted); margin-bottom: .4rem; text-transform: uppercase; letter-spacing: .08em; }
+    /* ── Form ── */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .9rem; }
+    .form-grid .full { grid-column: 1/-1; }
+    label { display: block; font-size: .75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: .35rem; }
     input, textarea, select {
-      width: 100%; background: var(--surface); border: 1px solid var(--border);
-      border-radius: 8px; color: var(--text); font-family: var(--sans); font-size: .9rem;
-      padding: .65rem .9rem; outline: none; transition: border-color .2s;
+      width: 100%; border: 2px solid var(--border); border-radius: 10px;
+      padding: .65rem .9rem; font-family: var(--font); font-size: .9rem;
+      color: var(--text); background: #f8fafc; outline: none;
+      transition: border-color .2s, background .2s;
     }
-    input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+    input:focus, textarea:focus, select:focus { border-color: var(--purple); background: #fff; }
     textarea { resize: vertical; min-height: 80px; }
 
-    .btn {
-      display: inline-flex; align-items: center; gap: .5rem;
-      padding: .65rem 1.4rem; border-radius: 8px; border: none;
-      font-family: var(--mono); font-size: .85rem; cursor: pointer;
-      transition: all .18s; font-weight: 700;
+    /* ── Busca ── */
+    .search-wrap { position: relative; margin-bottom: 1rem; }
+    .search-wrap input { padding-left: 2.75rem; background: var(--surface); border: 2px solid var(--border); border-radius: 50px; }
+    .search-wrap input:focus { border-color: var(--purple); }
+    .search-icon { position: absolute; left: .95rem; top: 50%; transform: translateY(-50%); font-size: 1.1rem; pointer-events: none; }
+
+    /* ── Botões ── */
+    .btn { display: inline-flex; align-items: center; gap: .45rem; padding: .65rem 1.3rem; border: none; border-radius: 50px; font-family: var(--font); font-size: .875rem; font-weight: 700; cursor: pointer; transition: all .18s; }
+    .btn-primary { background: linear-gradient(135deg, var(--purple), var(--pink)); color: #fff; }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(124,58,237,.35); }
+    .btn-ghost { background: transparent; color: var(--muted); border: 2px solid var(--border); }
+    .btn-ghost:hover { border-color: var(--purple); color: var(--purple); }
+    .btn-danger { background: var(--red-light); color: var(--red); border: none; }
+    .btn-danger:hover { background: var(--red); color: #fff; }
+    .form-actions { display: flex; gap: .75rem; justify-content: flex-end; margin-top: 1rem; }
+
+    /* ── Filtros ── */
+    .filters { display: flex; gap: .75rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+    .filters select { width: auto; border-radius: 50px; font-size: .85rem; padding: .5rem 1rem; }
+
+    /* ── Tasks ── */
+    #lista { display: flex; flex-direction: column; gap: .75rem; }
+
+    .task {
+      background: var(--surface); border-radius: var(--radius);
+      padding: 1.1rem 1.25rem; display: flex; align-items: flex-start; gap: 1rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,.05);
+      border-left: 5px solid transparent;
+      animation: pop .22s ease; transition: box-shadow .2s;
     }
-    .btn-primary { background: var(--accent); color: #0d0f14; }
-    .btn-primary:hover { background: #39f09a; box-shadow: 0 0 20px #4fffb040; }
-    .btn-danger  { background: transparent; color: var(--accent2); border: 1px solid var(--accent2); }
-    .btn-danger:hover { background: var(--accent2); color: #fff; }
-    .btn-ghost   { background: transparent; color: var(--muted); border: 1px solid var(--border); }
-    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+    .task:hover { box-shadow: 0 6px 20px rgba(0,0,0,.1); }
+    .task.pend { border-color: var(--amber); }
+    .task.prog { border-color: #3b82f6; }
+    .task.done { border-color: var(--green); opacity: .75; }
+    @keyframes pop { from { opacity:0; transform: scale(.97); } to { opacity:1; transform: none; } }
 
-    .form-actions { display: flex; gap: .75rem; justify-content: flex-end; margin-top: 1.25rem; }
-
-    /* ── Filters ─────────────────────────────────────────── */
-    .filters {
-      display: flex; gap: .75rem; margin-bottom: 1.5rem; flex-wrap: wrap; align-items: center;
-    }
-    .filters select { width: auto; }
-    .filters label { display: none; }
-
-    /* ── Task list ───────────────────────────────────────── */
-    #lista-tarefas { display: flex; flex-direction: column; gap: .85rem; }
-
-    .task-card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 1.25rem 1.5rem;
-      display: flex; align-items: flex-start; gap: 1rem;
-      animation: slideIn .25s ease; transition: box-shadow .2s;
-    }
-    .task-card:hover { box-shadow: 0 4px 24px #00000040; }
-    @keyframes slideIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: none; } }
-
-    .task-check {
-      width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--border);
+    .check {
+      width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid var(--border);
       flex-shrink: 0; cursor: pointer; margin-top: 2px;
-      transition: all .2s; display: grid; place-items: center;
+      display: grid; place-items: center; transition: all .2s; font-size: .75rem; color: #fff;
     }
-    .task-check.done { background: var(--accent); border-color: var(--accent); }
-    .task-check.done::after { content: '✓'; font-size: .65rem; color: #0d0f14; font-weight: 700; }
+    .check.done-check { background: var(--green); border-color: var(--green); }
 
-    .task-body { flex: 1; }
-    .task-title { font-weight: 600; font-size: .95rem; margin-bottom: .3rem; }
-    .task-title.done { text-decoration: line-through; color: var(--muted); }
-    .task-desc { font-size: .82rem; color: var(--muted); margin-bottom: .6rem; }
-    .task-meta { display: flex; gap: .5rem; flex-wrap: wrap; }
+    .task-body { flex: 1; min-width: 0; }
+    .task-title { font-weight: 700; font-size: .95rem; margin-bottom: .25rem; }
+    .task-title.crossed { text-decoration: line-through; color: var(--muted); }
+    .task-desc { font-size: .82rem; color: var(--muted); margin-bottom: .5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .task-meta { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; }
+    .task-date { font-size: .7rem; color: var(--muted); margin-left: auto; white-space: nowrap; }
 
-    .badge {
-      font-family: var(--mono); font-size: .65rem; padding: .2rem .55rem;
-      border-radius: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
-    }
-    .badge-pendente   { background: #ffd16622; color: var(--accent3); border: 1px solid #ffd16644; }
-    .badge-andamento  { background: #4fffb022; color: var(--accent);  border: 1px solid #4fffb044; }
-    .badge-concluida  { background: #6b728022; color: var(--muted);   border: 1px solid var(--border); }
-    .badge-alta   { background: #ff6b6b22; color: var(--accent2); border: 1px solid #ff6b6b44; }
-    .badge-media  { background: #ffd16622; color: var(--accent3); border: 1px solid #ffd16644; }
-    .badge-baixa  { background: #4fffb022; color: var(--accent);  border: 1px solid #4fffb044; }
+    .badge { font-size: .68rem; font-weight: 700; padding: .2rem .6rem; border-radius: 50px; text-transform: uppercase; letter-spacing: .06em; }
+    .b-pendente  { background: var(--amber-light); color: #92400e; }
+    .b-andamento { background: #dbeafe; color: #1e40af; }
+    .b-concluida { background: var(--green-light); color: #14532d; }
+    .b-alta  { background: var(--red-light);    color: #7f1d1d; }
+    .b-media { background: var(--amber-light);  color: #92400e; }
+    .b-baixa { background: var(--teal-light);   color: #134e4a; }
 
-    .task-actions { display: flex; gap: .5rem; flex-shrink: 0; }
-    .icon-btn {
-      width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border);
-      background: transparent; color: var(--muted); cursor: pointer;
-      display: grid; place-items: center; font-size: .85rem; transition: all .15s;
-    }
-    .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
-    .icon-btn.del:hover { border-color: var(--accent2); color: var(--accent2); }
+    .task-actions { display: flex; gap: .4rem; flex-shrink: 0; }
+    .icon-btn { width: 34px; height: 34px; border-radius: 10px; border: 2px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; display: grid; place-items: center; font-size: .9rem; transition: all .15s; }
+    .icon-btn:hover { border-color: var(--purple); color: var(--purple); background: var(--purple-light); }
+    .icon-btn.del:hover { border-color: var(--red); color: var(--red); background: var(--red-light); }
 
-    /* ── Empty state ─────────────────────────────────────── */
-    .empty {
-      text-align: center; padding: 4rem 1rem; color: var(--muted);
-      font-family: var(--mono); font-size: .85rem;
-    }
-    .empty .icon { font-size: 2.5rem; margin-bottom: 1rem; opacity: .4; }
+    /* ── Empty ── */
+    .empty { text-align: center; padding: 3.5rem 1rem; color: var(--muted); }
+    .empty-icon { font-size: 3rem; margin-bottom: .75rem; }
 
-    /* ── Toast ───────────────────────────────────────────── */
+    /* ── Toast ── */
     #toast {
-      position: fixed; bottom: 2rem; right: 2rem;
-      background: var(--card); border: 1px solid var(--accent);
-      color: var(--accent); font-family: var(--mono); font-size: .8rem;
-      padding: .75rem 1.25rem; border-radius: 10px;
-      box-shadow: 0 8px 32px #00000060;
-      transform: translateY(80px); opacity: 0;
-      transition: all .3s cubic-bezier(.34,1.56,.64,1);
-      z-index: 9999; max-width: 300px;
+      position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999;
+      background: var(--text); color: #fff; font-family: var(--font); font-weight: 700;
+      font-size: .85rem; padding: .75rem 1.25rem; border-radius: 50px;
+      transform: translateY(80px); opacity: 0; transition: all .3s cubic-bezier(.34,1.56,.64,1);
+      max-width: 280px; box-shadow: 0 8px 24px rgba(0,0,0,.2);
     }
     #toast.show { transform: none; opacity: 1; }
-    #toast.error { border-color: var(--accent2); color: var(--accent2); }
+    #toast.ok   { background: var(--green); }
+    #toast.err  { background: var(--red); }
 
-    /* ── Modal ───────────────────────────────────────────── */
-    .modal-overlay {
-      position: fixed; inset: 0; background: #0007; backdrop-filter: blur(4px);
-      display: none; place-items: center; z-index: 1000;
-    }
-    .modal-overlay.open { display: grid; }
-    .modal {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 16px; padding: 2rem; width: min(480px, 90vw);
-      animation: popIn .25s ease;
-    }
-    @keyframes popIn { from { transform: scale(.92); opacity:0; } to { transform: none; opacity:1; } }
-    .modal h2 { font-family: var(--mono); font-size: 1rem; color: var(--accent); margin-bottom: 1.25rem; }
+    /* ── Modal ── */
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; place-items: center; z-index: 1000; backdrop-filter: blur(3px); }
+    .overlay.open { display: grid; }
+    .modal { background: var(--surface); border-radius: var(--radius); padding: 1.75rem; width: min(460px, 90vw); animation: popM .22s ease; }
+    @keyframes popM { from { transform: scale(.93); opacity:0; } to { transform: none; opacity:1; } }
+    .modal-title { font-size: 1.1rem; font-weight: 800; color: var(--purple); margin-bottom: 1.25rem; }
 
-    @media (max-width: 640px) {
-      .stats-bar { grid-template-columns: 1fr 1fr; }
+    @media (max-width: 580px) {
+      .stats { grid-template-columns: 1fr 1fr; }
       .form-grid { grid-template-columns: 1fr; }
       .form-grid .full { grid-column: 1; }
+      header h1 { font-size: 1.6rem; }
     }
   </style>
 </head>
 <body>
+
+<header>
+  <h1>✅ TaskFlow</h1>
+  <p>Gerencie suas tarefas com estilo</p>
+</header>
+
 <div class="wrapper">
 
-  <!-- Header -->
-  <header>
-    <div class="logo">
-      <div class="logo-icon">✦</div>
-      <h1>Task<span>Flow</span></h1>
-    </div>
-    <span style="font-family:var(--mono);font-size:.75rem;color:var(--muted)">CRUD — Python + SQLite</span>
-  </header>
-
   <!-- Stats -->
-  <div class="stats-bar">
-    <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value" id="stat-total">0</div></div>
-    <div class="stat-card yellow"><div class="stat-label">Pendentes</div><div class="stat-value" id="stat-pendente">0</div></div>
-    <div class="stat-card green"><div class="stat-label">Em andamento</div><div class="stat-value" id="stat-andamento">0</div></div>
-    <div class="stat-card" style="--accent:var(--muted)"><div class="stat-label">Concluídas</div><div class="stat-value" id="stat-concluida">0</div></div>
+  <div class="stats">
+    <div class="stat total"><div class="stat-num" id="s-total">0</div><div class="stat-label">Total</div></div>
+    <div class="stat pend"> <div class="stat-num" id="s-pend">0</div> <div class="stat-label">Pendentes</div></div>
+    <div class="stat prog"> <div class="stat-num" id="s-prog">0</div> <div class="stat-label">Em andamento</div></div>
+    <div class="stat done"> <div class="stat-num" id="s-done">0</div> <div class="stat-label">Concluídas</div></div>
   </div>
 
-  <!-- Form: Nova Tarefa -->
-  <div class="form-card">
-    <h2>// nova_tarefa</h2>
+  <!-- Nova Tarefa -->
+  <div class="card">
+    <div class="card-title">✨ Nova Tarefa</div>
     <div class="form-grid">
       <div class="full">
         <label for="titulo">Título *</label>
-        <input type="text" id="titulo" placeholder="Ex.: Estudar para a prova de BD..." />
+        <input id="titulo" type="text" placeholder="Ex.: Estudar para a prova de BD..." />
       </div>
       <div class="full">
-        <label for="descricao">Descrição</label>
-        <textarea id="descricao" placeholder="Detalhes opcionais..."></textarea>
+        <label for="desc">Descrição</label>
+        <textarea id="desc" placeholder="Detalhes opcionais..."></textarea>
       </div>
       <div>
         <label for="status">Status</label>
@@ -244,8 +232,8 @@
         </select>
       </div>
       <div>
-        <label for="prioridade">Prioridade</label>
-        <select id="prioridade">
+        <label for="prio">Prioridade</label>
+        <select id="prio">
           <option value="baixa">🟢 Baixa</option>
           <option value="media" selected>🟡 Média</option>
           <option value="alta">🔴 Alta</option>
@@ -253,239 +241,215 @@
       </div>
     </div>
     <div class="form-actions">
-      <button class="btn btn-primary" onclick="criarTarefa()">＋ Adicionar Tarefa</button>
+      <button class="btn btn-primary" onclick="criar()">＋ Adicionar Tarefa</button>
     </div>
   </div>
 
-  <!-- Filters -->
+  <!-- Busca + Filtros -->
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="busca" placeholder="Buscar por título..." oninput="carregar()" />
+  </div>
+
   <div class="filters">
-    <label>Status</label>
-    <select id="filtro-status" onchange="carregarTarefas()">
+    <select id="f-status" onchange="carregar()">
       <option value="">Todos os status</option>
       <option value="pendente">Pendente</option>
       <option value="em andamento">Em Andamento</option>
       <option value="concluida">Concluída</option>
     </select>
-    <select id="filtro-prioridade" onchange="carregarTarefas()">
+    <select id="f-prio" onchange="carregar()">
       <option value="">Todas as prioridades</option>
       <option value="alta">Alta</option>
       <option value="media">Média</option>
       <option value="baixa">Baixa</option>
     </select>
-    <button class="btn btn-ghost" onclick="limparFiltros()">✕ Limpar filtros</button>
+    <button class="btn btn-ghost" onclick="limpar()">✕ Limpar</button>
   </div>
 
   <!-- Lista -->
-  <div id="lista-tarefas"></div>
+  <div id="lista"></div>
 </div>
 
 <!-- Modal Edição -->
-<div class="modal-overlay" id="modal">
+<div class="overlay" id="modal">
   <div class="modal">
-    <h2>// editar_tarefa</h2>
+    <div class="modal-title">✏️ Editar Tarefa</div>
     <div class="form-grid">
-      <input type="hidden" id="edit-id" />
+      <input type="hidden" id="e-id" />
       <div class="full">
-        <label for="edit-titulo">Título *</label>
-        <input type="text" id="edit-titulo" />
+        <label>Título *</label>
+        <input id="e-titulo" type="text" />
       </div>
       <div class="full">
-        <label for="edit-descricao">Descrição</label>
-        <textarea id="edit-descricao"></textarea>
+        <label>Descrição</label>
+        <textarea id="e-desc"></textarea>
       </div>
       <div>
-        <label for="edit-status">Status</label>
-        <select id="edit-status">
+        <label>Status</label>
+        <select id="e-status">
           <option value="pendente">⏳ Pendente</option>
           <option value="em andamento">🔄 Em Andamento</option>
           <option value="concluida">✅ Concluída</option>
         </select>
       </div>
       <div>
-        <label for="edit-prioridade">Prioridade</label>
-        <select id="edit-prioridade">
+        <label>Prioridade</label>
+        <select id="e-prio">
           <option value="baixa">🟢 Baixa</option>
           <option value="media">🟡 Média</option>
           <option value="alta">🔴 Alta</option>
         </select>
       </div>
     </div>
-    <div class="form-actions" style="margin-top:1.25rem">
-      <button class="btn btn-ghost" onclick="fecharModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="salvarEdicao()">💾 Salvar</button>
+    <div class="form-actions" style="margin-top:1rem">
+      <button class="btn btn-ghost" onclick="fechar()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvar()">💾 Salvar</button>
     </div>
   </div>
 </div>
 
-<!-- Toast -->
 <div id="toast"></div>
 
 <script>
-  const API = "http://taskflow-backed.onrender.com";
+const API = "http://localhost:5000";
 
-  // ── Utilitários ───────────────────────────────────────────
+function toast(msg, tipo="ok") {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.className = tipo + " show";
+  setTimeout(() => el.className = "", 3000);
+}
 
-  function toast(msg, tipo = "ok") {
-    const el = document.getElementById("toast");
-    el.textContent = msg;
-    el.className = tipo === "erro" ? "error show" : "show";
-    setTimeout(() => el.className = "", 3000);
-  }
+function fmtData(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit", year:"2-digit", hour:"2-digit", minute:"2-digit" });
+}
 
-  function badgeStatus(s) {
-    const map = { "pendente": "badge-pendente", "em andamento": "badge-andamento", "concluida": "badge-concluida" };
-    const label = { "pendente": "Pendente", "em andamento": "Em Andamento", "concluida": "Concluída" };
-    return `<span class="badge ${map[s] || ''}">${label[s] || s}</span>`;
-  }
+function badgeStatus(s) {
+  const cls = { "pendente":"b-pendente", "em andamento":"b-andamento", "concluida":"b-concluida" };
+  const label = { "pendente":"Pendente", "em andamento":"Em Andamento", "concluida":"Concluída" };
+  return `<span class="badge ${cls[s]||''}">${label[s]||s}</span>`;
+}
+function badgePrio(p) {
+  const cls = { "alta":"b-alta", "media":"b-media", "baixa":"b-baixa" };
+  const em  = { "alta":"🔴", "media":"🟡", "baixa":"🟢" };
+  return `<span class="badge ${cls[p]||''}">${em[p]||''} ${p}</span>`;
+}
 
-  function badgePrio(p) {
-    const map = { "alta": "badge-alta", "media": "badge-media", "baixa": "badge-baixa" };
-    const emoji = { "alta": "🔴", "media": "🟡", "baixa": "🟢" };
-    return `<span class="badge ${map[p] || ''}">${emoji[p] || ''} ${p}</span>`;
-  }
+async function carregar() {
+  const busca  = document.getElementById("busca").value.toLowerCase();
+  const status = document.getElementById("f-status").value;
+  const prio   = document.getElementById("f-prio").value;
 
-  // ── CRUD ──────────────────────────────────────────────────
+  let url = `${API}/tarefas`;
+  const p = new URLSearchParams();
+  if (status) p.append("status", status);
+  if (prio)   p.append("prioridade", prio);
+  if ([...p].length) url += "?" + p;
 
-  async function carregarTarefas() {
-    const status     = document.getElementById("filtro-status").value;
-    const prioridade = document.getElementById("filtro-prioridade").value;
-
-    let url = `${API}/tarefas`;
-    const params = new URLSearchParams();
-    if (status)     params.append("status", status);
-    if (prioridade) params.append("prioridade", prioridade);
-    if ([...params].length) url += "?" + params.toString();
-
+  try {
     const res = await fetch(url);
-    const tarefas = await res.json();
-    renderLista(tarefas);
-    await carregarStats();
-  }
+    let tarefas = await res.json();
+    if (busca) tarefas = tarefas.filter(t => t.titulo.toLowerCase().includes(busca));
+    render(tarefas);
+    stats();
+  } catch(e) { toast("Servidor offline. Inicie o backend.", "err"); }
+}
 
-  async function carregarStats() {
+async function stats() {
+  try {
     const res  = await fetch(`${API}/tarefas/stats`);
     const data = await res.json();
-    document.getElementById("stat-total").textContent     = data.total || 0;
-    document.getElementById("stat-pendente").textContent  = data.por_status?.pendente || 0;
-    document.getElementById("stat-andamento").textContent = data.por_status?.["em andamento"] || 0;
-    document.getElementById("stat-concluida").textContent = data.por_status?.concluida || 0;
-  }
+    document.getElementById("s-total").textContent = data.total || 0;
+    document.getElementById("s-pend").textContent  = data.por_status?.pendente || 0;
+    document.getElementById("s-prog").textContent  = data.por_status?.["em andamento"] || 0;
+    document.getElementById("s-done").textContent  = data.por_status?.concluida || 0;
+  } catch(e) {}
+}
 
-  async function criarTarefa() {
-    const titulo = document.getElementById("titulo").value.trim();
-    if (!titulo) { toast("Título é obrigatório!", "erro"); return; }
-
-    const payload = {
-      titulo,
-      descricao:  document.getElementById("descricao").value,
-      status:     document.getElementById("status").value,
-      prioridade: document.getElementById("prioridade").value,
-    };
-
-    const res = await fetch(`${API}/tarefas`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (res.ok) {
-      document.getElementById("titulo").value    = "";
-      document.getElementById("descricao").value = "";
-      toast("✅ Tarefa criada!");
-      carregarTarefas();
-    } else {
-      toast("Erro ao criar tarefa.", "erro");
-    }
-  }
-
-  async function deletarTarefa(id) {
-    if (!confirm("Excluir esta tarefa?")) return;
-    const res = await fetch(`${API}/tarefas/${id}`, { method: "DELETE" });
-    if (res.ok) { toast("🗑️ Tarefa excluída!"); carregarTarefas(); }
-    else toast("Erro ao excluir.", "erro");
-  }
-
-  async function toggleStatus(id, statusAtual) {
-    const proximo = statusAtual === "concluida" ? "pendente" : "concluida";
-    await fetch(`${API}/tarefas/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: proximo }),
-    });
-    carregarTarefas();
-  }
-
-  function abrirEdicao(tarefa) {
-    document.getElementById("edit-id").value         = tarefa.id;
-    document.getElementById("edit-titulo").value     = tarefa.titulo;
-    document.getElementById("edit-descricao").value  = tarefa.descricao || "";
-    document.getElementById("edit-status").value     = tarefa.status;
-    document.getElementById("edit-prioridade").value = tarefa.prioridade;
-    document.getElementById("modal").classList.add("open");
-  }
-
-  function fecharModal() {
-    document.getElementById("modal").classList.remove("open");
-  }
-
-  async function salvarEdicao() {
-    const id = document.getElementById("edit-id").value;
-    const payload = {
-      titulo:     document.getElementById("edit-titulo").value,
-      descricao:  document.getElementById("edit-descricao").value,
-      status:     document.getElementById("edit-status").value,
-      prioridade: document.getElementById("edit-prioridade").value,
-    };
-    const res = await fetch(`${API}/tarefas/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (res.ok) { toast("✏️ Tarefa atualizada!"); fecharModal(); carregarTarefas(); }
-    else toast("Erro ao atualizar.", "erro");
-  }
-
-  function limparFiltros() {
-    document.getElementById("filtro-status").value     = "";
-    document.getElementById("filtro-prioridade").value = "";
-    carregarTarefas();
-  }
-
-  // ── Render ────────────────────────────────────────────────
-
-  function renderLista(tarefas) {
-    const el = document.getElementById("lista-tarefas");
-    if (!tarefas.length) {
-      el.innerHTML = `<div class="empty"><div class="icon">◈</div>Nenhuma tarefa encontrada.</div>`;
-      return;
-    }
-    el.innerHTML = tarefas.map(t => `
-      <div class="task-card">
-        <div class="task-check ${t.status === 'concluida' ? 'done' : ''}"
-             onclick="toggleStatus(${t.id}, '${t.status}')"></div>
-        <div class="task-body">
-          <div class="task-title ${t.status === 'concluida' ? 'done' : ''}">${t.titulo}</div>
-          ${t.descricao ? `<div class="task-desc">${t.descricao}</div>` : ''}
-          <div class="task-meta">
-            ${badgeStatus(t.status)}
-            ${badgePrio(t.prioridade)}
-            <span class="badge" style="color:var(--muted);border-color:var(--border)">#${t.id}</span>
-          </div>
-        </div>
-        <div class="task-actions">
-          <button class="icon-btn" onclick='abrirEdicao(${JSON.stringify(t)})' title="Editar">✎</button>
-          <button class="icon-btn del" onclick="deletarTarefa(${t.id})" title="Excluir">✕</button>
-        </div>
-      </div>`).join("");
-  }
-
-  // Fechar modal clicando fora
-  document.getElementById("modal").addEventListener("click", e => {
-    if (e.target.id === "modal") fecharModal();
+async function criar() {
+  const titulo = document.getElementById("titulo").value.trim();
+  if (!titulo) { toast("Título é obrigatório!", "err"); return; }
+  await fetch(`${API}/tarefas`, {
+    method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ titulo, descricao: document.getElementById("desc").value,
+      status: document.getElementById("status").value, prioridade: document.getElementById("prio").value })
   });
+  document.getElementById("titulo").value = "";
+  document.getElementById("desc").value   = "";
+  toast("✅ Tarefa criada!");
+  carregar();
+}
 
-  // Inicializa
-  carregarTarefas();
+async function deletar(id) {
+  if (!confirm("Excluir esta tarefa?")) return;
+  await fetch(`${API}/tarefas/${id}`, { method:"DELETE" });
+  toast("🗑️ Excluída!"); carregar();
+}
+
+async function toggle(id, atual) {
+  const novo = atual === "concluida" ? "pendente" : "concluida";
+  await fetch(`${API}/tarefas/${id}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({status:novo}) });
+  carregar();
+}
+
+function abrir(t) {
+  document.getElementById("e-id").value     = t.id;
+  document.getElementById("e-titulo").value = t.titulo;
+  document.getElementById("e-desc").value   = t.descricao || "";
+  document.getElementById("e-status").value = t.status;
+  document.getElementById("e-prio").value   = t.prioridade;
+  document.getElementById("modal").classList.add("open");
+}
+function fechar() { document.getElementById("modal").classList.remove("open"); }
+
+async function salvar() {
+  const id = document.getElementById("e-id").value;
+  await fetch(`${API}/tarefas/${id}`, { method:"PUT", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ titulo: document.getElementById("e-titulo").value,
+      descricao: document.getElementById("e-desc").value,
+      status: document.getElementById("e-status").value,
+      prioridade: document.getElementById("e-prio").value }) });
+  toast("✏️ Atualizada!"); fechar(); carregar();
+}
+
+function limpar() {
+  document.getElementById("f-status").value = "";
+  document.getElementById("f-prio").value   = "";
+  document.getElementById("busca").value    = "";
+  carregar();
+}
+
+function render(tarefas) {
+  const el = document.getElementById("lista");
+  if (!tarefas.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📭</div><p>Nenhuma tarefa encontrada.</p></div>`;
+    return;
+  }
+  const cls = { "pendente":"pend", "em andamento":"prog", "concluida":"done" };
+  el.innerHTML = tarefas.map(t => `
+    <div class="task ${cls[t.status]||''}">
+      <div class="check ${t.status==='concluida'?'done-check':''}" onclick="toggle(${t.id},'${t.status}')">${t.status==='concluida'?'✓':''}</div>
+      <div class="task-body">
+        <div class="task-title ${t.status==='concluida'?'crossed':''}">${t.titulo}</div>
+        ${t.descricao?`<div class="task-desc">${t.descricao}</div>`:''}
+        <div class="task-meta">
+          ${badgeStatus(t.status)}
+          ${badgePrio(t.prioridade)}
+          <span class="task-date">📅 ${fmtData(t.criado_em)}</span>
+        </div>
+      </div>
+      <div class="task-actions">
+        <button class="icon-btn" onclick='abrir(${JSON.stringify(t)})' title="Editar">✎</button>
+        <button class="icon-btn del" onclick="deletar(${t.id})" title="Excluir">✕</button>
+      </div>
+    </div>`).join("");
+}
+
+document.getElementById("modal").addEventListener("click", e => { if(e.target.id==="modal") fechar(); });
+carregar();
 </script>
 </body>
 </html>
