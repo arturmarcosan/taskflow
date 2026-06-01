@@ -8,11 +8,23 @@ from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = "taskflow_secret_2025"
-CORS(app, 
-     supports_credentials=True,
-     origins=["https://arturmarcosan.github.io"],
-     allow_headers=["Content-Type"],
-     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+
+# CORS manual — garante compatibilidade com GitHub Pages + credentials
+@app.after_request
+def add_cors_headers(response):
+    origin = request.headers.get("Origin", "")
+    if "arturmarcosan.github.io" in origin or "localhost" in origin:
+        response.headers["Access-Control-Allow-Origin"]      = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Headers"]     = "Content-Type, Authorization"
+        response.headers["Access-Control-Allow-Methods"]     = "GET, POST, PUT, DELETE, OPTIONS"
+    return response
+
+@app.before_request
+def handle_options():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        return response
 
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
@@ -52,7 +64,6 @@ def init_db():
             atualizado_em TEXT NOT NULL
         )
     """)
-    # Adiciona coluna telefone se nao existir (migracao segura)
     try:
         cursor.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS telefone TEXT DEFAULT ''")
     except:
@@ -203,10 +214,8 @@ def estatisticas():
     cursor.close(); conn.close()
     return jsonify({"total": total, "por_status": por_status, "por_prioridade": por_prioridade}), 200
 
-# ─── ROTA PARA O n8n — WhatsApp ───────────────────────────────────────────────
 @app.route("/n8n/alertas", methods=["GET"])
 def alertas_n8n():
-    """Retorna usuarios com tarefas pendentes e telefone para o n8n disparar WhatsApp."""
     conn = get_db(); cursor = conn.cursor()
     cursor.execute("""
         SELECT u.nome, u.telefone, COUNT(t.id) as total_pendentes,
