@@ -162,6 +162,7 @@
       <div><label>Nome</label><input id="c-nome" type="text" placeholder="Seu nome" /></div>
       <div><label>Email</label><input id="c-email" type="email" placeholder="seu@email.com" /></div>
       <div><label>Senha</label><input id="c-senha" type="password" placeholder="••••••••" /></div>
+      <div><label>WhatsApp (com DDD)</label><input id="c-telefone" type="tel" placeholder="Ex: 5511999999999" /></div>
       <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="fazerCadastro()">Criar conta</button>
     </div>
   </div>
@@ -315,7 +316,7 @@ async function fazerCadastro() {
   const email = document.getElementById("c-email").value.trim();
   const senha = document.getElementById("c-senha").value;
   if (!nome || !email || !senha) { mostrarErroAuth("Preencha todos os campos."); return; }
-  const res = await fetch(`${API}/auth/cadastro`, { method:"POST", headers:{"Content-Type":"application/json"}, credentials:"include", body: JSON.stringify({nome, email, senha}) });
+  const res = await fetch(`${API}/auth/cadastro`, { method:"POST", headers:{"Content-Type":"application/json"}, credentials:"include", body: JSON.stringify({nome, email, senha, telefone: document.getElementById("c-telefone").value.trim()}) });
   const data = await res.json();
   if (!res.ok) { mostrarErroAuth(data.erro); return; }
   entrarNoApp(data.nome);
@@ -448,3 +449,4 @@ verificarSessao();
 </script>
 </body>
 </html>
+
