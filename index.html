@@ -162,7 +162,7 @@
       <div><label>Nome</label><input id="c-nome" type="text" placeholder="Seu nome" /></div>
       <div><label>Email</label><input id="c-email" type="email" placeholder="seu@email.com" /></div>
       <div><label>Senha</label><input id="c-senha" type="password" placeholder="••••••••" /></div>
-      <div><label>WhatsApp (com DDD)</label><input id="c-telefone" type="tel" placeholder="Ex: 5511999999999" /></div>
+      <div><label>WhatsApp (Ex: 5511999999999)</label><input id="c-telefone" type="tel" placeholder="5511999999999" /></div>
       <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="fazerCadastro()">Criar conta</button>
     </div>
   </div>
@@ -267,6 +267,14 @@
 <script>
 const API = "https://taskflow-zlk0.onrender.com";
 
+function getToken() { return localStorage.getItem("tf_token"); }
+function setToken(t) { localStorage.setItem("tf_token", t); }
+function clearToken() { localStorage.removeItem("tf_token"); localStorage.removeItem("tf_nome"); }
+
+function authHeaders() {
+  return { "Content-Type": "application/json", "Authorization": "Bearer " + getToken() };
+}
+
 // ── UTILS ──────────────────────────────────────────────────────────────────
 function toast(msg, tipo="ok") {
   const el = document.getElementById("toast");
@@ -305,9 +313,11 @@ async function fazerLogin() {
   const email = document.getElementById("l-email").value.trim();
   const senha = document.getElementById("l-senha").value;
   if (!email || !senha) { mostrarErroAuth("Preencha email e senha."); return; }
-  const res = await fetch(`${API}/auth/login`, { method:"POST", headers:{"Content-Type":"application/json"}, credentials:"include", body: JSON.stringify({email, senha}) });
+  const res = await fetch(`${API}/auth/login`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({email, senha}) });
   const data = await res.json();
   if (!res.ok) { mostrarErroAuth(data.erro); return; }
+  setToken(data.token);
+  localStorage.setItem("tf_nome", data.nome);
   entrarNoApp(data.nome);
 }
 
@@ -315,15 +325,18 @@ async function fazerCadastro() {
   const nome  = document.getElementById("c-nome").value.trim();
   const email = document.getElementById("c-email").value.trim();
   const senha = document.getElementById("c-senha").value;
+  const telefone = document.getElementById("c-telefone") ? document.getElementById("c-telefone").value.trim() : "";
   if (!nome || !email || !senha) { mostrarErroAuth("Preencha todos os campos."); return; }
-  const res = await fetch(`${API}/auth/cadastro`, { method:"POST", headers:{"Content-Type":"application/json"}, credentials:"include", body: JSON.stringify({nome, email, senha, telefone: document.getElementById("c-telefone").value.trim()}) });
+  const res = await fetch(`${API}/auth/cadastro`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({nome, email, senha, telefone}) });
   const data = await res.json();
   if (!res.ok) { mostrarErroAuth(data.erro); return; }
+  setToken(data.token);
+  localStorage.setItem("tf_nome", data.nome);
   entrarNoApp(data.nome);
 }
 
-async function fazerLogout() {
-  await fetch(`${API}/auth/logout`, { method:"POST", credentials:"include" });
+function fazerLogout() {
+  clearToken();
   document.getElementById("app").classList.add("hidden");
   document.getElementById("auth-screen").classList.remove("hidden");
 }
@@ -335,14 +348,10 @@ function entrarNoApp(nome) {
   carregar();
 }
 
-async function verificarSessao() {
-  try {
-    const res = await fetch(`${API}/auth/me`, { credentials:"include" });
-    if (res.ok) {
-      const data = await res.json();
-      entrarNoApp(data.nome);
-    }
-  } catch(e) {}
+function verificarSessao() {
+  const token = getToken();
+  const nome  = localStorage.getItem("tf_nome");
+  if (token && nome) entrarNoApp(nome);
 }
 
 // ── CRUD ───────────────────────────────────────────────────────────────────
@@ -356,7 +365,7 @@ async function carregar() {
   if (prio)   p.append("prioridade", prio);
   if ([...p].length) url += "?" + p;
   try {
-    const res = await fetch(url, { credentials:"include" });
+    const res = await fetch(url, { headers: authHeaders() });
     if (res.status === 401) { fazerLogout(); return; }
     let tarefas = await res.json();
     if (busca) tarefas = tarefas.filter(t => t.titulo.toLowerCase().includes(busca));
@@ -366,7 +375,7 @@ async function carregar() {
 
 async function stats() {
   try {
-    const res = await fetch(`${API}/tarefas/stats`, { credentials:"include" });
+    const res = await fetch(`${API}/tarefas/stats`, { headers: authHeaders() });
     const data = await res.json();
     document.getElementById("s-total").textContent = data.total || 0;
     document.getElementById("s-pend").textContent  = data.por_status?.pendente || 0;
@@ -378,7 +387,7 @@ async function stats() {
 async function criar() {
   const titulo = document.getElementById("titulo").value.trim();
   if (!titulo) { toast("Titulo e obrigatorio!", "err"); return; }
-  await fetch(`${API}/tarefas`, { method:"POST", credentials:"include", headers:{"Content-Type":"application/json"},
+  await fetch(`${API}/tarefas`, { method:"POST", headers: authHeaders(),
     body: JSON.stringify({ titulo, descricao: document.getElementById("desc").value,
       status: document.getElementById("status").value, prioridade: document.getElementById("prio").value }) });
   document.getElementById("titulo").value = "";
@@ -388,13 +397,13 @@ async function criar() {
 
 async function deletar(id) {
   if (!confirm("Excluir esta tarefa?")) return;
-  await fetch(`${API}/tarefas/${id}`, { method:"DELETE", credentials:"include" });
+  await fetch(`${API}/tarefas/${id}`, { method:"DELETE", headers: authHeaders() });
   toast("Excluida!"); carregar();
 }
 
 async function toggle(id, atual) {
   const novo = atual === "concluida" ? "pendente" : "concluida";
-  await fetch(`${API}/tarefas/${id}`, { method:"PUT", credentials:"include", headers:{"Content-Type":"application/json"}, body: JSON.stringify({status:novo}) });
+  await fetch(`${API}/tarefas/${id}`, { method:"PUT", headers: authHeaders(), body: JSON.stringify({status:novo}) });
   carregar();
 }
 
@@ -410,7 +419,7 @@ function fechar() { document.getElementById("modal").classList.remove("open"); }
 
 async function salvar() {
   const id = document.getElementById("e-id").value;
-  await fetch(`${API}/tarefas/${id}`, { method:"PUT", credentials:"include", headers:{"Content-Type":"application/json"},
+  await fetch(`${API}/tarefas/${id}`, { method:"PUT", headers: authHeaders(),
     body: JSON.stringify({ titulo: document.getElementById("e-titulo").value,
       descricao: document.getElementById("e-desc").value,
       status: document.getElementById("e-status").value,
