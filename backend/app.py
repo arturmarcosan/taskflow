@@ -1,5 +1,4 @@
 from flask import Flask, request, jsonify, session
-from flask_cors import CORS
 import psycopg2
 import psycopg2.extras
 import os
@@ -9,27 +8,34 @@ from datetime import datetime
 app = Flask(__name__)
 app.secret_key = "taskflow_secret_2025"
 
-# CORS manual — garante compatibilidade com GitHub Pages + credentials
-@app.after_request
-def add_cors_headers(response):
-    origin = request.headers.get("Origin", "")
-    if "arturmarcosan.github.io" in origin or "localhost" in origin:
-        response.headers["Access-Control-Allow-Origin"]      = origin
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Headers"]     = "Content-Type, Authorization"
-        response.headers["Access-Control-Allow-Methods"]     = "GET, POST, PUT, DELETE, OPTIONS"
-    return response
-
-@app.before_request
-def handle_options():
-    if request.method == "OPTIONS":
-        response = app.make_default_options_response()
-        return response
-
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
     "postgresql://taskflow_db_d8ds_user:BZsJ14BsxYNSbBSJo0o4oJcBx9ZJwMEZ@dpg-d8ed4pgjs32c738c8p9g-a/taskflow_db_d8ds"
 )
+
+ALLOWED_ORIGINS = ["https://arturmarcosan.github.io", "http://localhost", "http://127.0.0.1"]
+
+def cors_response(response):
+    origin = request.headers.get("Origin", "")
+    for allowed in ALLOWED_ORIGINS:
+        if allowed in origin:
+            response.headers["Access-Control-Allow-Origin"]      = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Headers"]     = "Content-Type"
+            response.headers["Access-Control-Allow-Methods"]     = "GET, POST, PUT, DELETE, OPTIONS"
+            break
+    return response
+
+@app.after_request
+def after_request(response):
+    return cors_response(response)
+
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        response = app.make_response("")
+        response.status_code = 200
+        return cors_response(response)
 
 def get_db():
     return psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
@@ -69,8 +75,6 @@ def init_db():
     except:
         pass
     conn.commit(); cursor.close(); conn.close()
-
-# ─── AUTH ─────────────────────────────────────────────────────────────────────
 
 @app.route("/auth/cadastro", methods=["POST"])
 def cadastro():
@@ -118,8 +122,6 @@ def me():
     uid = usuario_logado()
     if not uid: return jsonify({"erro": "Nao autenticado."}), 401
     return jsonify({"usuario_id": uid, "nome": session.get("usuario_nome")}), 200
-
-# ─── CRUD TAREFAS ─────────────────────────────────────────────────────────────
 
 @app.route("/tarefas", methods=["POST"])
 def criar_tarefa():
