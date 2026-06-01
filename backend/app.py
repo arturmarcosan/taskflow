@@ -1,269 +1,273 @@
 # =============================================================================
-# TaskFlow — API REST com Flask e PostgreSQL
-# Disciplina: Desenvolvimento Web / Banco de Dados
-# Descrição: Backend com operações CRUD completas para gerenciamento de tarefas
+# TaskFlow — API REST com Flask, PostgreSQL e Autenticacao por Sessao
 # =============================================================================
 
-from flask import Flask, request, jsonify   # Flask: framework web
-from flask_cors import CORS                 # CORS: permite requisições do frontend
-import psycopg2                             # Driver de conexão com PostgreSQL
-import psycopg2.extras                      # Extras: RealDictCursor (retorna dicts)
-import os                                   # OS: leitura de variáveis de ambiente
-from datetime import datetime               # Datetime: registro de datas
+from flask import Flask, request, jsonify, session
+from flask_cors import CORS
+import psycopg2
+import psycopg2.extras
+import os
+import hashlib
+from datetime import datetime
 
-# ─── Configuração da Aplicação ─────────────────────────────────────────────────
+app = Flask(__name__)
+app.secret_key = "taskflow_secret_2025"  # Chave para sessoes
+CORS(app, supports_credentials=True)     # Credentials necessario para sessoes
 
-app = Flask(__name__)   # Cria a instância do servidor Flask
-CORS(app)               # Habilita CORS para o frontend poder se comunicar
-
-# URL de conexão com o banco PostgreSQL (definida como variável de ambiente)
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
     "postgresql://taskflow_db_d8ds_user:BZsJ14BsxYNSbBSJo0o4oJcBx9ZJwMEZ@dpg-d8ed4pgjs32c738c8p9g-a/taskflow_db_d8ds"
 )
 
-# ─── Funções Auxiliares ────────────────────────────────────────────────────────
+# ─── Auxiliares ───────────────────────────────────────────────────────────────
 
 def get_db():
-    """
-    Cria e retorna uma conexão com o banco de dados PostgreSQL.
-    RealDictCursor faz cada linha retornar como dicionário Python.
-    """
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
     return conn
 
+def hash_senha(senha):
+    """Criptografa a senha com SHA-256."""
+    return hashlib.sha256(senha.encode()).hexdigest()
+
+def usuario_logado():
+    """Retorna o ID do usuario logado ou None."""
+    return session.get("usuario_id")
+
 def init_db():
-    """
-    Inicializa o banco de dados criando a tabela 'tarefas' se não existir.
-    Chamada automaticamente ao iniciar o servidor.
-    """
+    """Cria as tabelas necessarias."""
     conn = get_db()
     cursor = conn.cursor()
+
+    # Tabela de usuarios
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS tarefas (
-            id            SERIAL PRIMARY KEY,           -- ID auto-incremento
-            titulo        TEXT    NOT NULL,             -- Título obrigatório
-            descricao     TEXT    DEFAULT '',           -- Descrição opcional
-            status        TEXT    NOT NULL DEFAULT 'pendente',    -- Estado da tarefa
-            prioridade    TEXT    NOT NULL DEFAULT 'media',       -- Nível de urgência
-            criado_em     TEXT    NOT NULL,             -- Data de criação
-            atualizado_em TEXT    NOT NULL              -- Data da última edição
+        CREATE TABLE IF NOT EXISTS usuarios (
+            id         SERIAL PRIMARY KEY,
+            nome       TEXT NOT NULL,
+            email      TEXT NOT NULL UNIQUE,
+            senha      TEXT NOT NULL,
+            criado_em  TEXT NOT NULL
         )
     """)
-    conn.commit()   # Confirma a criação da tabela
-    cursor.close()
-    conn.close()
 
-# ─── ROTAS CRUD ────────────────────────────────────────────────────────────────
+    # Tabela de tarefas (com usuario_id)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS tarefas (
+            id            SERIAL PRIMARY KEY,
+            usuario_id    INTEGER REFERENCES usuarios(id) ON DELETE CASCADE,
+            titulo        TEXT NOT NULL,
+            descricao     TEXT DEFAULT '',
+            status        TEXT NOT NULL DEFAULT 'pendente',
+            prioridade    TEXT NOT NULL DEFAULT 'media',
+            criado_em     TEXT NOT NULL,
+            atualizado_em TEXT NOT NULL
+        )
+    """)
 
-# =============================================================================
-# CREATE — Criar nova tarefa
-# Método: POST | Rota: /tarefas
-# Body: { "titulo": "...", "descricao": "...", "status": "...", "prioridade": "..." }
-# =============================================================================
-@app.route("/tarefas", methods=["POST"])
-def criar_tarefa():
-    dados = request.get_json()  # Lê o JSON enviado pelo frontend
-
-    # Validação: título é obrigatório
-    if not dados or not dados.get("titulo"):
-        return jsonify({"erro": "O campo 'titulo' é obrigatório."}), 400
-
-    agora = datetime.now().isoformat()  # Timestamp atual
-
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        """INSERT INTO tarefas (titulo, descricao, status, prioridade, criado_em, atualizado_em)
-           VALUES (%s, %s, %s, %s, %s, %s) RETURNING id""",
-        (
-            dados["titulo"],
-            dados.get("descricao", ""),
-            dados.get("status", "pendente"),
-            dados.get("prioridade", "media"),
-            agora,
-            agora,
-        ),
-    )
-    novo_id = cursor.fetchone()["id"]   # Recupera o ID gerado
     conn.commit()
     cursor.close()
     conn.close()
 
-    return jsonify({"mensagem": "Tarefa criada com sucesso!", "id": novo_id}), 201
+# ─── AUTH ─────────────────────────────────────────────────────────────────────
+
+@app.route("/auth/cadastro", methods=["POST"])
+def cadastro():
+    dados = request.get_json()
+    if not dados or not all(k in dados for k in ["nome", "email", "senha"]):
+        return jsonify({"erro": "Nome, email e senha sao obrigatorios."}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM usuarios WHERE email = %s", (dados["email"],))
+    if cursor.fetchone():
+        cursor.close(); conn.close()
+        return jsonify({"erro": "Email ja cadastrado."}), 409
+
+    cursor.execute(
+        "INSERT INTO usuarios (nome, email, senha, criado_em) VALUES (%s, %s, %s, %s) RETURNING id",
+        (dados["nome"], dados["email"], hash_senha(dados["senha"]), datetime.now().isoformat())
+    )
+    novo_id = cursor.fetchone()["id"]
+    conn.commit(); cursor.close(); conn.close()
+
+    session["usuario_id"] = novo_id
+    session["usuario_nome"] = dados["nome"]
+    return jsonify({"mensagem": "Cadastro realizado!", "nome": dados["nome"]}), 201
 
 
-# =============================================================================
-# READ ALL — Listar todas as tarefas
-# Método: GET | Rota: /tarefas
-# Query params opcionais: ?status=pendente&prioridade=alta
-# =============================================================================
+@app.route("/auth/login", methods=["POST"])
+def login():
+    dados = request.get_json()
+    if not dados or not all(k in dados for k in ["email", "senha"]):
+        return jsonify({"erro": "Email e senha sao obrigatorios."}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM usuarios WHERE email = %s AND senha = %s",
+                   (dados["email"], hash_senha(dados["senha"])))
+    usuario = cursor.fetchone()
+    cursor.close(); conn.close()
+
+    if not usuario:
+        return jsonify({"erro": "Email ou senha incorretos."}), 401
+
+    session["usuario_id"]   = usuario["id"]
+    session["usuario_nome"] = usuario["nome"]
+    return jsonify({"mensagem": "Login realizado!", "nome": usuario["nome"]}), 200
+
+
+@app.route("/auth/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return jsonify({"mensagem": "Logout realizado!"}), 200
+
+
+@app.route("/auth/me", methods=["GET"])
+def me():
+    uid = usuario_logado()
+    if not uid:
+        return jsonify({"erro": "Nao autenticado."}), 401
+    return jsonify({"usuario_id": uid, "nome": session.get("usuario_nome")}), 200
+
+# ─── CRUD TAREFAS ─────────────────────────────────────────────────────────────
+
+@app.route("/tarefas", methods=["POST"])
+def criar_tarefa():
+    uid = usuario_logado()
+    if not uid: return jsonify({"erro": "Nao autenticado."}), 401
+
+    dados = request.get_json()
+    if not dados or not dados.get("titulo"):
+        return jsonify({"erro": "Titulo e obrigatorio."}), 400
+
+    agora = datetime.now().isoformat()
+    conn = get_db(); cursor = conn.cursor()
+    cursor.execute(
+        """INSERT INTO tarefas (usuario_id, titulo, descricao, status, prioridade, criado_em, atualizado_em)
+           VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+        (uid, dados["titulo"], dados.get("descricao",""),
+         dados.get("status","pendente"), dados.get("prioridade","media"), agora, agora)
+    )
+    novo_id = cursor.fetchone()["id"]
+    conn.commit(); cursor.close(); conn.close()
+    return jsonify({"mensagem": "Tarefa criada!", "id": novo_id}), 201
+
+
 @app.route("/tarefas", methods=["GET"])
 def listar_tarefas():
-    # Lê filtros opcionais da URL
-    status_filtro     = request.args.get("status")
-    prioridade_filtro = request.args.get("prioridade")
+    uid = usuario_logado()
+    if not uid: return jsonify({"erro": "Nao autenticado."}), 401
 
-    conn = get_db()
-    cursor = conn.cursor()
+    status_f = request.args.get("status")
+    prio_f   = request.args.get("prioridade")
 
-    # Constrói a query dinamicamente com base nos filtros
-    query  = "SELECT * FROM tarefas WHERE 1=1"
-    params = []
-
-    if status_filtro:
-        query += " AND status = %s"
-        params.append(status_filtro)
-
-    if prioridade_filtro:
-        query += " AND prioridade = %s"
-        params.append(prioridade_filtro)
-
-    query += " ORDER BY criado_em DESC"  # Mais recentes primeiro
+    conn = get_db(); cursor = conn.cursor()
+    query  = "SELECT * FROM tarefas WHERE usuario_id = %s"
+    params = [uid]
+    if status_f: query += " AND status = %s"; params.append(status_f)
+    if prio_f:   query += " AND prioridade = %s"; params.append(prio_f)
+    query += " ORDER BY criado_em DESC"
     cursor.execute(query, params)
-    tarefas = cursor.fetchall()
-    cursor.close()
-    conn.close()
-
-    return jsonify([dict(t) for t in tarefas]), 200
+    tarefas = [dict(t) for t in cursor.fetchall()]
+    cursor.close(); conn.close()
+    return jsonify(tarefas), 200
 
 
-# =============================================================================
-# READ ONE — Buscar tarefa por ID
-# Método: GET | Rota: /tarefas/<id>
-# =============================================================================
 @app.route("/tarefas/<int:id>", methods=["GET"])
 def obter_tarefa(id):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM tarefas WHERE id = %s", (id,))
+    uid = usuario_logado()
+    if not uid: return jsonify({"erro": "Nao autenticado."}), 401
+    conn = get_db(); cursor = conn.cursor()
+    cursor.execute("SELECT * FROM tarefas WHERE id = %s AND usuario_id = %s", (id, uid))
     tarefa = cursor.fetchone()
-    cursor.close()
-    conn.close()
-
-    if not tarefa:
-        return jsonify({"erro": "Tarefa não encontrada."}), 404
-
+    cursor.close(); conn.close()
+    if not tarefa: return jsonify({"erro": "Tarefa nao encontrada."}), 404
     return jsonify(dict(tarefa)), 200
 
 
-# =============================================================================
-# UPDATE — Atualizar tarefa existente
-# Método: PUT | Rota: /tarefas/<id>
-# Body: campos que deseja alterar (parcial ou completo)
-# =============================================================================
 @app.route("/tarefas/<int:id>", methods=["PUT"])
 def atualizar_tarefa(id):
+    uid = usuario_logado()
+    if not uid: return jsonify({"erro": "Nao autenticado."}), 401
+
     dados = request.get_json()
-    if not dados:
-        return jsonify({"erro": "Nenhum dado enviado."}), 400
+    if not dados: return jsonify({"erro": "Nenhum dado enviado."}), 400
 
-    conn = get_db()
-    cursor = conn.cursor()
-
-    # Verifica se a tarefa existe antes de atualizar
-    cursor.execute("SELECT id FROM tarefas WHERE id = %s", (id,))
+    conn = get_db(); cursor = conn.cursor()
+    cursor.execute("SELECT id FROM tarefas WHERE id = %s AND usuario_id = %s", (id, uid))
     if not cursor.fetchone():
-        cursor.close()
-        conn.close()
-        return jsonify({"erro": "Tarefa não encontrada."}), 404
+        cursor.close(); conn.close()
+        return jsonify({"erro": "Tarefa nao encontrada."}), 404
 
-    # Monta o UPDATE dinamicamente com os campos enviados
-    campos  = []
-    valores = []
+    campos = []; valores = []
     for campo in ["titulo", "descricao", "status", "prioridade"]:
         if campo in dados:
-            campos.append(f"{campo} = %s")
-            valores.append(dados[campo])
+            campos.append(f"{campo} = %s"); valores.append(dados[campo])
 
     if not campos:
-        cursor.close()
-        conn.close()
-        return jsonify({"erro": "Nenhum campo válido para atualizar."}), 400
+        cursor.close(); conn.close()
+        return jsonify({"erro": "Nenhum campo valido."}), 400
 
-    # Sempre atualiza o campo de data de modificação
-    campos.append("atualizado_em = %s")
-    valores.append(datetime.now().isoformat())
-    valores.append(id)
-
-    cursor.execute(f"UPDATE tarefas SET {', '.join(campos)} WHERE id = %s", valores)
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-    return jsonify({"mensagem": "Tarefa atualizada com sucesso!"}), 200
+    campos.append("atualizado_em = %s"); valores.append(datetime.now().isoformat())
+    valores.append(id); valores.append(uid)
+    cursor.execute(f"UPDATE tarefas SET {', '.join(campos)} WHERE id = %s AND usuario_id = %s", valores)
+    conn.commit(); cursor.close(); conn.close()
+    return jsonify({"mensagem": "Tarefa atualizada!"}), 200
 
 
-# =============================================================================
-# DELETE — Remover tarefa
-# Método: DELETE | Rota: /tarefas/<id>
-# =============================================================================
 @app.route("/tarefas/<int:id>", methods=["DELETE"])
 def deletar_tarefa(id):
-    conn = get_db()
-    cursor = conn.cursor()
-
-    # Verifica se existe antes de deletar
-    cursor.execute("SELECT id FROM tarefas WHERE id = %s", (id,))
+    uid = usuario_logado()
+    if not uid: return jsonify({"erro": "Nao autenticado."}), 401
+    conn = get_db(); cursor = conn.cursor()
+    cursor.execute("SELECT id FROM tarefas WHERE id = %s AND usuario_id = %s", (id, uid))
     if not cursor.fetchone():
-        cursor.close()
-        conn.close()
-        return jsonify({"erro": "Tarefa não encontrada."}), 404
-
-    cursor.execute("DELETE FROM tarefas WHERE id = %s", (id,))
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-    return jsonify({"mensagem": "Tarefa deletada com sucesso!"}), 200
+        cursor.close(); conn.close()
+        return jsonify({"erro": "Tarefa nao encontrada."}), 404
+    cursor.execute("DELETE FROM tarefas WHERE id = %s AND usuario_id = %s", (id, uid))
+    conn.commit(); cursor.close(); conn.close()
+    return jsonify({"mensagem": "Tarefa deletada!"}), 200
 
 
-# =============================================================================
-# STATS — Estatísticas do banco (rota bônus)
-# Método: GET | Rota: /tarefas/stats
-# =============================================================================
 @app.route("/tarefas/stats", methods=["GET"])
 def estatisticas():
-    conn = get_db()
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT COUNT(*) as total FROM tarefas")
+    uid = usuario_logado()
+    if not uid: return jsonify({"erro": "Nao autenticado."}), 401
+    conn = get_db(); cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) as total FROM tarefas WHERE usuario_id = %s", (uid,))
     total = cursor.fetchone()["total"]
-
-    cursor.execute("SELECT status, COUNT(*) as qtd FROM tarefas GROUP BY status")
-    por_status = {row["status"]: row["qtd"] for row in cursor.fetchall()}
-
-    cursor.execute("SELECT prioridade, COUNT(*) as qtd FROM tarefas GROUP BY prioridade")
-    por_prioridade = {row["prioridade"]: row["qtd"] for row in cursor.fetchall()}
-
-    cursor.close()
-    conn.close()
-
+    cursor.execute("SELECT status, COUNT(*) as qtd FROM tarefas WHERE usuario_id = %s GROUP BY status", (uid,))
+    por_status = {r["status"]: r["qtd"] for r in cursor.fetchall()}
+    cursor.execute("SELECT prioridade, COUNT(*) as qtd FROM tarefas WHERE usuario_id = %s GROUP BY prioridade", (uid,))
+    por_prioridade = {r["prioridade"]: r["qtd"] for r in cursor.fetchall()}
+    cursor.close(); conn.close()
     return jsonify({"total": total, "por_status": por_status, "por_prioridade": por_prioridade}), 200
 
 
-# =============================================================================
-# PENDENTES — Rota para integração com n8n (alertas por email)
-# Método: GET | Rota: /tarefas/pendentes
-# =============================================================================
-@app.route("/tarefas/pendentes", methods=["GET"])
-def tarefas_pendentes():
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM tarefas WHERE status != 'concluida' ORDER BY prioridade DESC")
-    tarefas = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return jsonify([dict(t) for t in tarefas]), 200
+# ─── ROTA PARA O n8n ──────────────────────────────────────────────────────────
+# O n8n chama essa rota para buscar todos os usuarios e suas tarefas pendentes
+# e envia o email personalizado para cada um
+
+@app.route("/n8n/alertas", methods=["GET"])
+def alertas_n8n():
+    """Retorna lista de usuarios com tarefas pendentes para o n8n disparar emails."""
+    conn = get_db(); cursor = conn.cursor()
+    cursor.execute("""
+        SELECT u.nome, u.email, COUNT(t.id) as total_pendentes
+        FROM usuarios u
+        JOIN tarefas t ON t.usuario_id = u.id
+        WHERE t.status != 'concluida'
+        GROUP BY u.id, u.nome, u.email
+        HAVING COUNT(t.id) > 0
+    """)
+    dados = [dict(r) for r in cursor.fetchall()]
+    cursor.close(); conn.close()
+    return jsonify(dados), 200
 
 
-# ─── Inicialização ─────────────────────────────────────────────────────────────
+# ─── INIT ─────────────────────────────────────────────────────────────────────
 
-# Cria a tabela ao iniciar o servidor (seguro repetir — usa IF NOT EXISTS)
 init_db()
 
 if __name__ == "__main__":
-    print("✅  Banco de dados PostgreSQL inicializado.")
-    print("🚀  Servidor rodando em http://localhost:5000")
+    print("Servidor rodando em http://localhost:5000")
     app.run(debug=True, port=5000)
-
