@@ -213,7 +213,12 @@ git branch -M main
 git push -u origin main
 ```
 
-> O GitHub pedirá seu usuário e senha (ou token de acesso).
+> ⚠️ **Atenção:** O GitHub **não aceita mais senha** para autenticação via terminal desde 2021.  
+> Quando solicitado, informe seu **usuário** e um **token de acesso pessoal (PAT)** no lugar da senha.  
+>
+> Para gerar seu token:  
+> **GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token**  
+> Marque a permissão `repo` e copie o token gerado (ele só aparece uma vez).
 
 ---
 

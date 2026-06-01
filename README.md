@@ -39,7 +39,7 @@ taskflow/
 ├── 📁 backend/
 │   ├── 🐍 app.py              # API REST — rotas CRUD
 │   ├── 📄 requirements.txt    # Dependências Python
-│   └── 🗄️  tarefas.db         # Banco SQLite (gerado automaticamente)
+│   └── 🗄️  tarefas.db         # Gerado automaticamente (não versionado)
 │
 ├── 📁 frontend/
 │   └── 🌐 index.html          # Interface Web (HTML + CSS + JS)
