@@ -287,13 +287,14 @@ function fmtData(iso) {
 }
 function badgeStatus(s) {
   const cls = { "pendente":"b-pendente", "em andamento":"b-andamento", "concluida":"b-concluida" };
-  const lbl = { "pendente":"Pendente", "em andamento":"Em Andamento", "concluida":"Concluida" };
+  const lbl = { "pendente":"⏳ Pendente", "em andamento":"🔄 Em Andamento", "concluida":"✅ Concluída" };
   return `<span class="badge ${cls[s]||''}">${lbl[s]||s}</span>`;
 }
 function badgePrio(p) {
   const cls = { "alta":"b-alta", "media":"b-media", "baixa":"b-baixa" };
   const em  = { "alta":"🔴", "media":"🟡", "baixa":"🟢" };
-  return `<span class="badge ${cls[p]||''}">${em[p]||''} ${p}</span>`;
+  const cap = { "alta":"Alta", "media":"Média", "baixa":"Baixa" };
+  return `<span class="badge ${cls[p]||''}">${em[p]||''} ${cap[p]||p}</span>`;
 }
 
 // ── AUTH ───────────────────────────────────────────────────────────────────
