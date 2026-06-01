@@ -1,41 +1,47 @@
-from flask import Flask, request, jsonify, session
+from flask import Flask, request, jsonify
 import psycopg2
 import psycopg2.extras
 import os
 import hashlib
-from datetime import datetime
+import jwt
+from datetime import datetime, timedelta
+from functools import wraps
 
 app = Flask(__name__)
-app.secret_key = "taskflow_secret_2025"
+SECRET_KEY = "taskflow_jwt_secret_2025"
 
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
     "postgresql://taskflow_db_d8ds_user:BZsJ14BsxYNSbBSJo0o4oJcBx9ZJwMEZ@dpg-d8ed4pgjs32c738c8p9g-a/taskflow_db_d8ds"
 )
 
-ALLOWED_ORIGINS = ["https://arturmarcosan.github.io", "http://localhost", "http://127.0.0.1"]
+ALLOWED_ORIGINS = [
+    "https://arturmarcosan.github.io",
+    "http://localhost",
+    "http://127.0.0.1",
+    "null"
+]
 
-def cors_response(response):
+def add_cors(response):
     origin = request.headers.get("Origin", "")
-    for allowed in ALLOWED_ORIGINS:
-        if allowed in origin:
-            response.headers["Access-Control-Allow-Origin"]      = origin
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-            response.headers["Access-Control-Allow-Headers"]     = "Content-Type"
-            response.headers["Access-Control-Allow-Methods"]     = "GET, POST, PUT, DELETE, OPTIONS"
-            break
+    allowed = any(o in origin for o in ALLOWED_ORIGINS) or origin == "null"
+    if allowed or not origin:
+        response.headers["Access-Control-Allow-Origin"]      = origin or "*"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Headers"]     = "Content-Type, Authorization"
+        response.headers["Access-Control-Allow-Methods"]     = "GET, POST, PUT, DELETE, OPTIONS"
     return response
 
 @app.after_request
 def after_request(response):
-    return cors_response(response)
+    return add_cors(response)
 
 @app.before_request
 def handle_preflight():
     if request.method == "OPTIONS":
-        response = app.make_response("")
-        response.status_code = 200
-        return cors_response(response)
+        resp = app.make_response("")
+        resp.status_code = 200
+        return add_cors(resp)
 
 def get_db():
     return psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
@@ -43,8 +49,28 @@ def get_db():
 def hash_senha(senha):
     return hashlib.sha256(senha.encode()).hexdigest()
 
-def usuario_logado():
-    return session.get("usuario_id")
+def gerar_token(usuario_id, nome):
+    payload = {
+        "id": usuario_id,
+        "nome": nome,
+        "exp": datetime.utcnow() + timedelta(days=7)
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+
+def token_requerido(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        if not token:
+            return jsonify({"erro": "Token nao fornecido."}), 401
+        try:
+            data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            request.usuario_id   = data["id"]
+            request.usuario_nome = data["nome"]
+        except:
+            return jsonify({"erro": "Token invalido ou expirado."}), 401
+        return f(*args, **kwargs)
+    return decorated
 
 def init_db():
     conn = get_db(); cursor = conn.cursor()
@@ -87,14 +113,13 @@ def cadastro():
         cursor.close(); conn.close()
         return jsonify({"erro": "Email ja cadastrado."}), 409
     cursor.execute(
-        "INSERT INTO usuarios (nome, email, telefone, senha, criado_em) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+        "INSERT INTO usuarios (nome, email, telefone, senha, criado_em) VALUES (%s,%s,%s,%s,%s) RETURNING id",
         (dados["nome"], dados["email"], dados.get("telefone",""), hash_senha(dados["senha"]), datetime.now().isoformat())
     )
     novo_id = cursor.fetchone()["id"]
     conn.commit(); cursor.close(); conn.close()
-    session["usuario_id"]   = novo_id
-    session["usuario_nome"] = dados["nome"]
-    return jsonify({"mensagem": "Cadastro realizado!", "nome": dados["nome"]}), 201
+    token = gerar_token(novo_id, dados["nome"])
+    return jsonify({"mensagem": "Cadastro realizado!", "token": token, "nome": dados["nome"]}), 201
 
 @app.route("/auth/login", methods=["POST"])
 def login():
@@ -108,25 +133,13 @@ def login():
     cursor.close(); conn.close()
     if not usuario:
         return jsonify({"erro": "Email ou senha incorretos."}), 401
-    session["usuario_id"]   = usuario["id"]
-    session["usuario_nome"] = usuario["nome"]
-    return jsonify({"mensagem": "Login realizado!", "nome": usuario["nome"]}), 200
-
-@app.route("/auth/logout", methods=["POST"])
-def logout():
-    session.clear()
-    return jsonify({"mensagem": "Logout realizado!"}), 200
-
-@app.route("/auth/me", methods=["GET"])
-def me():
-    uid = usuario_logado()
-    if not uid: return jsonify({"erro": "Nao autenticado."}), 401
-    return jsonify({"usuario_id": uid, "nome": session.get("usuario_nome")}), 200
+    token = gerar_token(usuario["id"], usuario["nome"])
+    return jsonify({"mensagem": "Login realizado!", "token": token, "nome": usuario["nome"]}), 200
 
 @app.route("/tarefas", methods=["POST"])
+@token_requerido
 def criar_tarefa():
-    uid = usuario_logado()
-    if not uid: return jsonify({"erro": "Nao autenticado."}), 401
+    uid = request.usuario_id
     dados = request.get_json()
     if not dados or not dados.get("titulo"):
         return jsonify({"erro": "Titulo e obrigatorio."}), 400
@@ -141,9 +154,9 @@ def criar_tarefa():
     return jsonify({"mensagem": "Tarefa criada!", "id": novo_id}), 201
 
 @app.route("/tarefas", methods=["GET"])
+@token_requerido
 def listar_tarefas():
-    uid = usuario_logado()
-    if not uid: return jsonify({"erro": "Nao autenticado."}), 401
+    uid = request.usuario_id
     status_f = request.args.get("status")
     prio_f   = request.args.get("prioridade")
     conn = get_db(); cursor = conn.cursor()
@@ -156,20 +169,10 @@ def listar_tarefas():
     cursor.close(); conn.close()
     return jsonify(tarefas), 200
 
-@app.route("/tarefas/<int:id>", methods=["GET"])
-def obter_tarefa(id):
-    uid = usuario_logado()
-    if not uid: return jsonify({"erro": "Nao autenticado."}), 401
-    conn = get_db(); cursor = conn.cursor()
-    cursor.execute("SELECT * FROM tarefas WHERE id = %s AND usuario_id = %s", (id, uid))
-    tarefa = cursor.fetchone(); cursor.close(); conn.close()
-    if not tarefa: return jsonify({"erro": "Tarefa nao encontrada."}), 404
-    return jsonify(dict(tarefa)), 200
-
 @app.route("/tarefas/<int:id>", methods=["PUT"])
+@token_requerido
 def atualizar_tarefa(id):
-    uid = usuario_logado()
-    if not uid: return jsonify({"erro": "Nao autenticado."}), 401
+    uid = request.usuario_id
     dados = request.get_json()
     if not dados: return jsonify({"erro": "Nenhum dado enviado."}), 400
     conn = get_db(); cursor = conn.cursor()
@@ -190,9 +193,9 @@ def atualizar_tarefa(id):
     return jsonify({"mensagem": "Tarefa atualizada!"}), 200
 
 @app.route("/tarefas/<int:id>", methods=["DELETE"])
+@token_requerido
 def deletar_tarefa(id):
-    uid = usuario_logado()
-    if not uid: return jsonify({"erro": "Nao autenticado."}), 401
+    uid = request.usuario_id
     conn = get_db(); cursor = conn.cursor()
     cursor.execute("SELECT id FROM tarefas WHERE id = %s AND usuario_id = %s", (id, uid))
     if not cursor.fetchone():
@@ -203,9 +206,9 @@ def deletar_tarefa(id):
     return jsonify({"mensagem": "Tarefa deletada!"}), 200
 
 @app.route("/tarefas/stats", methods=["GET"])
+@token_requerido
 def estatisticas():
-    uid = usuario_logado()
-    if not uid: return jsonify({"erro": "Nao autenticado."}), 401
+    uid = request.usuario_id
     conn = get_db(); cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) as total FROM tarefas WHERE usuario_id = %s", (uid,))
     total = cursor.fetchone()["total"]
@@ -235,6 +238,5 @@ def alertas_n8n():
 init_db()
 
 if __name__ == "__main__":
-    print("Servidor rodando em http://localhost:5000")
     app.run(debug=True, port=5000)
 
