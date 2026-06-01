@@ -8,7 +8,11 @@ from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = "taskflow_secret_2025"
-CORS(app, supports_credentials=True)
+CORS(app, 
+     supports_credentials=True,
+     origins=["https://arturmarcosan.github.io"],
+     allow_headers=["Content-Type"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
